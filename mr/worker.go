@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strconv"
 	"time"
 )
 import "log"
@@ -47,24 +48,38 @@ func Worker(Map func(string, string) []KeyValue, Reduce func(string, []string) s
 		case "map":
 			fmt.Printf("Map on file: %v\n", masterMssg.File)
 			fileString := prepareMapInput(masterMssg.File)
-
-			intermediate := Map(masterMssg.File, fileString)
-			for i, kv := range intermediate {
-				if i == 5 {
-					break
-				}
-				fmt.Printf("%v : %v reduce task: %v\n", kv.Key, kv.Value, ihash(kv.Key)%masterMssg.NReduce)
+			tempFiles := []*os.File{}
+			for i := 0; i < masterMssg.NReduce; i++ {
+				file, _ := ioutil.TempFile(".", "*")
+				tempFiles = append(tempFiles, file)
 			}
-			doneMssg := WorkerMessage{
+			intermediate := Map(masterMssg.File, fileString)
+
+			for _, kv := range intermediate {
+				tempFiles[ihash(kv.Key)%masterMssg.NReduce].WriteString(fmt.Sprintf("%v %v", kv.Key, kv.Value))
+			}
+			doneMessage := WorkerMessage{
 				Task:   "map",
 				TaskID: masterMssg.TaskID,
 			}
-			isSuccessful := call("Master.ReportDone", &doneMssg, &masterMssg)
-			if !isSuccessful {
+			isSuccessful := call("Master.ReportDone", &doneMessage, &masterMssg)
+			if isSuccessful {
+				//rename tempfiles to the correct names
+				for i := 0; i < masterMssg.NReduce; i++ {
+					os.Rename(tempFiles[i].Name(),
+						"mr-"+strconv.Itoa(masterMssg.TaskID)+"-"+strconv.Itoa(i))
+				}
+			} else {
 				log.Println("Error reporting a task result")
-				//delete the temporary files generated
+				//remove the temporary files generated
+				for i := 0; i < masterMssg.NReduce; i++ {
+					os.Remove(tempFiles[i].Name())
+				}
 			}
-			//time.Sleep(time.Minute)
+			for i := 0; i < masterMssg.NReduce; i++ {
+				tempFiles[i].Close()
+			}
+
 		case "reduce":
 			log.Printf("xxx")
 		}
@@ -79,6 +94,7 @@ func Worker(Map func(string, string) []KeyValue, Reduce func(string, []string) s
 }
 
 func prepareMapInput(fileName string) string {
+	//time.Sleep(8 * time.Second)
 	file, err := os.Open(fileName)
 	if err != nil {
 		log.Fatal("cannot open %v", fileName)
