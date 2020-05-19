@@ -13,6 +13,6 @@ We have given you a little code to start you off. The "main" routines for the ma
 Project highlights:
 
 - native go RPC is used as the means for workers and the master to communicate
-- the master process uses has 2 ways to detect timed-out worker jobs: 1. use thread runing in the backgorund to check periodically 2. when a worker finishes its job, and notifies the master, the master can check wether the job exceeds the time limit.
+- the master process has 2 ways to detect timed-out worker jobs: 1. use a thread runing in the backgorund to check periodically 2. when a worker finishes its job and notifies the master, the master can check wether the job exceeds the time limit.
 - the master process is thread safe, and it creates a thread whenever it sees a request coming from a worker process asking for a task.
-- temporary files(later removed) are used as a mechanism for us to work with timed-out jobs 
+- temporary files(later removed) are used as a mechanism for us to work with timed-out jobs.
