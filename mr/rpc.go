@@ -5,8 +5,10 @@ package mr
 // remember to capitalize all names.
 //
 
-import "os"
-import "strconv"
+import (
+	"os"
+	"strconv"
+)
 
 type WorkerMessage struct {
 	TaskID int
